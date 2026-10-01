@@ -30,6 +30,31 @@ import sys
 from pathlib import Path
 
 
+def _enable_processing_plugin() -> bool:
+    """Put QGIS's Processing plugin on sys.path.
+
+    qgis/qgis:ltr installs qgis.core where python3 can import it, but
+    Processing lives in /usr/share/qgis/python/plugins and is not on the
+    default path. qgis_process adds that path itself; a bare python3 does not.
+    """
+    candidates: list[Path] = []
+    prefix = os.environ.get("QGIS_PREFIX_PATH", "").strip()
+    if prefix:
+        candidates.append(Path(prefix) / "share" / "qgis" / "python" / "plugins")
+    candidates.append(Path("/usr/share/qgis/python/plugins"))
+    for path in candidates:
+        if (path / "processing").is_dir():
+            entry = str(path)
+            if entry not in sys.path:
+                sys.path.insert(0, entry)
+            return True
+    print(
+        "ERROR: QGIS Processing plugin not found. "
+        "Expected /usr/share/qgis/python/plugins inside qgis/qgis:ltr."
+    )
+    return False
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
         print("Usage: generate_tiles.py <path-to-project_config.json>")
@@ -73,13 +98,20 @@ def main(argv: list[str]) -> int:
     tile_format_code = 0 if tile_format == "PNG" else 1
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    os.environ.setdefault("QGIS_PREFIX_PATH", "/usr")
 
     from qgis.core import QgsApplication, QgsCoordinateReferenceSystem
-    from processing.core.Processing import Processing
-    import processing
+
+    QgsApplication.setPrefixPath(os.environ["QGIS_PREFIX_PATH"], True)
+    if not _enable_processing_plugin():
+        return 1
 
     qgs = QgsApplication([], False)
     qgs.initQgis()
+
+    from processing.core.Processing import Processing
+    import processing
+
     Processing.initialize()
 
     try:
