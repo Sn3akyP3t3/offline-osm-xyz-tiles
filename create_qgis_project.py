@@ -49,7 +49,7 @@ CONFIG_TEMPLATE = {
         "points"
     ],
     "style": {
-        "hide_points": true,
+        "hide_points": True,
         "road_colors": {
             "motorway": "#e892a2",
             "trunk": "#f9b29c",
